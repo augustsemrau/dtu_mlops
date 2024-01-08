@@ -1,23 +1,9 @@
-'''
-Overall exercise description
-As the final exercise we will develop a simple baseline model which we will continue to develop on during the course. For this exercise we provide the data in the data/corruptmnist folder. Do NOT use the data in the corruptmnist_v2 folder as that is intended for another exercise. As the name suggest this is a (subsampled) corrupted version of regular MNIST. Your overall task is the following:
-
-    Implement a MNIST neural network that achieves at least 85 % accuracy on the test set.
-
-Before any training can start, you should identify what corruption that we have applied to the MNIST dataset to create the corrupted version. This can help you identify what kind of neural network to use to get good performance, but any network should really be able to achieve this.
-
-One key point of this course is trying to stay organized. Spending time now organizing your code, will save time in the future as you start to add more and more features. As subgoals, please fulfill the following exercises
-
-1. Implement your model in a script called model.py
-2. Implement your data setup in a script called data.py. The data was saved using torch.save, so to load it you should use torch.load.
-3. Implement training and evaluation of your model in main.py script. The main.py script should be able to take an additional subcommands indicating if the model should train or evaluate. It will look something like this:
-python main.py train --lr 1e-4
-python main.py evaluate trained_model.pt
-'''
-
+import os
 import click
 import torch
+from tqdm import tqdm
 from model import MyAwesomeModel
+import matplotlib.pyplot as plt
 
 from data import mnist
 
@@ -39,6 +25,37 @@ def train(lr):
     model = MyAwesomeModel()
     train_set, _ = mnist()
 
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    criterion = torch.nn.CrossEntropyLoss()
+
+    #Train model and plot training loss progress
+    epochs = 10
+    steps = 0
+    train_losses = []
+
+    for e in tqdm(range(epochs)):
+        running_loss = 0
+        for images, labels in train_set:
+            steps += 1
+
+            optimizer.zero_grad()
+
+            log_ps = model(images)
+            loss = criterion(log_ps, labels)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item()
+            train_losses.append(running_loss / len(train_set))
+
+    # Save plot of training loss in current folder
+    plot_path = os.path.join(os.path.dirname(__file__), "training_loss.png")
+    plt.plot(train_losses, label='Training loss')
+    plt.legend(frameon=False)
+    plt.savefig(plot_path)
+
+    # Save model
+    torch.save(model, os.path.join(os.path.dirname(__file__), "model.pt"))
 
 @click.command()
 @click.argument("model_checkpoint")
@@ -51,6 +68,16 @@ def evaluate(model_checkpoint):
     model = torch.load(model_checkpoint)
     _, test_set = mnist()
 
+    accuracy = 0
+    with torch.no_grad():
+        for images, labels in tqdm(test_set, total=len(test_set)):
+            log_ps = model(images)
+            ps = torch.exp(log_ps)
+            top_p, top_class = ps.topk(1, dim=1)
+            equals = top_class == labels.view(*top_class.shape)
+            accuracy += torch.mean(equals.type(torch.FloatTensor))
+        
+    print(f"Accuracy: {accuracy/len(test_set)}") 
 
 cli.add_command(train)
 cli.add_command(evaluate)
