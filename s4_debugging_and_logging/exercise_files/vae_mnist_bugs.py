@@ -53,7 +53,7 @@ class Encoder(nn.Module):
 
     def reparameterization(self, mean, var):
         """Reparameterization trick to sample z values."""
-        epsilon = torch.randn(*var.shape)
+        epsilon = torch.randn(*var.shape).to(DEVICE)
         z = mean + var * epsilon
         return z
 

@@ -51,6 +51,7 @@ def validation(
     """Validation pass through the dataset."""
     accuracy = 0
     test_loss = 0
+
     for images, labels in testloader:
         images = images.resize_(images.size()[0], 784)
 
